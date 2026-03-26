@@ -87,7 +87,12 @@ func main() {
 	mux.HandleFunc("/ready", hc.ReadinessHandler())
 	mux.HandleFunc("/health", hc.ReadinessHandler())
 
-	rateLimitOpts := &middleware.RateLimitOpts{FailOpen: cfg.FailOpen}
+	extractors, err := middleware.KeyExtractorsForModes(cfg.RateLimitKeys, cfg.RateLimitUserIDHeader, cfg.RateLimitAPIKeyHeader)
+	if err != nil {
+		slog.Error("rate limit key modes invalid", "error", err)
+		os.Exit(1)
+	}
+	rateLimitOpts := &middleware.RateLimitOpts{KeyExtractors: extractors, FailOpen: cfg.FailOpen}
 	handler := middleware.RateLimit(lim, rateLimitOpts)(mux)
 	handler = metrics.Handler(handler)
 	handler = middleware.Recovery(log, handler)
@@ -114,7 +119,7 @@ func main() {
 	}()
 
 	go func() {
-		log.Info("http server listening", "addr", cfg.HTTPAddr, "algorithm", algo, "capacity", cfg.RateLimitCapacity)
+		log.Info("http server listening", "addr", cfg.HTTPAddr, "algorithm", algo, "capacity", cfg.RateLimitCapacity, "rate_limit_keys", cfg.RateLimitKeys)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Error("http server failed", "error", err)
 			os.Exit(1)
