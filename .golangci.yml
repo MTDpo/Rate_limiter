@@ -1,3 +1,6 @@
+# yaml-language-server: $schema=https://golangci-lint.run/jsonschema/golangci.jsonschema.json
+# Конфиг golangci-lint v2 (см. https://golangci-lint.run/docs/configuration/file/)
+
 version: "2"
 run:
   timeout: 5m
@@ -18,9 +21,10 @@ linters:
       - legacy
       - std-error-handling
     rules:
-      - linters:
+      # Все *_test.go: не требовать проверки возврата ошибок у errcheck (как в типичных тестах)
+      - path: '(.+)_test\.go'
+        linters:
           - errcheck
-        path: _test\.go
     paths:
       - third_party$
       - builtin$
@@ -34,7 +38,7 @@ formatters:
       simplify: true
     goimports:
       local-prefixes:
-        - rate_limiter
+        - github.com/MTDpo/Rate_limiter
   exclusions:
     generated: lax
     paths:
