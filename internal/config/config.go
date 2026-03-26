@@ -29,27 +29,51 @@ type Config struct {
 	RateLimitWindow    time.Duration // sliding_window only
 	RateLimitKeyTTL    int
 	FailOpen           bool // allow traffic when Redis is down
+
+	// Ключи лимита (цепочка): ip, user_id, api_key — порядок задаёт порядок проверок Allow.
+	RateLimitKeys         []string
+	RateLimitUserIDHeader string
+	RateLimitAPIKeyHeader string
 }
 
 // Load reads config from environment and validates it.
 func Load() (*Config, error) {
 	cfg := &Config{
-		HTTPAddr:           getEnv("HTTP_ADDR", ":8080"),
-		MetricsAddr:        getEnv("METRICS_ADDR", ":9090"),
-		ShutdownTimeout:    getEnvDuration("SHUTDOWN_TIMEOUT", 15*time.Second),
-		RedisAddr:          getEnv("REDIS_ADDR", "localhost:6379"),
-		RedisTimeout:       getEnvDuration("REDIS_TIMEOUT", 3*time.Second),
-		RedisRetries:       getEnvInt("REDIS_RETRIES", 3),
-		RedisMinBackoff:    getEnvDuration("REDIS_MIN_BACKOFF", 100*time.Millisecond),
-		RedisMaxBackoff:    getEnvDuration("REDIS_MAX_BACKOFF", 2*time.Second),
-		RateLimitAlgorithm: strings.ToLower(strings.TrimSpace(getEnv("RATE_LIMIT_ALGORITHM", "token_bucket"))),
-		RateLimitCapacity:  getEnvInt("RATE_LIMIT_CAPACITY", 100),
-		RateLimitRefill:    getEnvFloat("RATE_LIMIT_REFILL", 100.0/60.0),
-		RateLimitWindow:    getEnvDuration("RATE_LIMIT_WINDOW", time.Minute),
-		RateLimitKeyTTL:    getEnvInt("RATE_LIMIT_KEY_TTL", 120),
-		FailOpen:           getEnvBool("RATE_LIMIT_FAIL_OPEN", true),
+		HTTPAddr:              getEnv("HTTP_ADDR", ":8080"),
+		MetricsAddr:           getEnv("METRICS_ADDR", ":9090"),
+		ShutdownTimeout:       getEnvDuration("SHUTDOWN_TIMEOUT", 15*time.Second),
+		RedisAddr:             getEnv("REDIS_ADDR", "localhost:6379"),
+		RedisTimeout:          getEnvDuration("REDIS_TIMEOUT", 3*time.Second),
+		RedisRetries:          getEnvInt("REDIS_RETRIES", 3),
+		RedisMinBackoff:       getEnvDuration("REDIS_MIN_BACKOFF", 100*time.Millisecond),
+		RedisMaxBackoff:       getEnvDuration("REDIS_MAX_BACKOFF", 2*time.Second),
+		RateLimitAlgorithm:    strings.ToLower(strings.TrimSpace(getEnv("RATE_LIMIT_ALGORITHM", "token_bucket"))),
+		RateLimitCapacity:     getEnvInt("RATE_LIMIT_CAPACITY", 100),
+		RateLimitRefill:       getEnvFloat("RATE_LIMIT_REFILL", 100.0/60.0),
+		RateLimitWindow:       getEnvDuration("RATE_LIMIT_WINDOW", time.Minute),
+		RateLimitKeyTTL:       getEnvInt("RATE_LIMIT_KEY_TTL", 120),
+		FailOpen:              getEnvBool("RATE_LIMIT_FAIL_OPEN", true),
+		RateLimitKeys:         parseRateLimitKeys(getEnv("RATE_LIMIT_KEYS", "ip")),
+		RateLimitUserIDHeader: getEnv("RATE_LIMIT_USER_ID_HEADER", "X-User-ID"),
+		RateLimitAPIKeyHeader: getEnv("RATE_LIMIT_API_KEY_HEADER", "X-API-Key"),
 	}
 	return cfg, cfg.Validate()
+}
+
+func parseRateLimitKeys(s string) []string {
+	parts := strings.Split(s, ",")
+	var keys []string
+	for _, p := range parts {
+		p = strings.ToLower(strings.TrimSpace(p))
+		if p == "" {
+			continue
+		}
+		keys = append(keys, p)
+	}
+	if len(keys) == 0 {
+		return []string{"ip"}
+	}
+	return keys
 }
 
 func (c *Config) Validate() error {
@@ -78,6 +102,13 @@ func (c *Config) Validate() error {
 		minTTL := int(c.RateLimitWindow/time.Second) + 1
 		if c.RateLimitKeyTTL < minTTL {
 			return fmt.Errorf("RATE_LIMIT_KEY_TTL must be >= window+1s (%ds) for sliding_window, got %d", minTTL, c.RateLimitKeyTTL)
+		}
+	}
+	for _, k := range c.RateLimitKeys {
+		switch k {
+		case "ip", "user_id", "api_key":
+		default:
+			return fmt.Errorf("unknown RATE_LIMIT_KEYS part %q (use ip, user_id, api_key, comma-separated)", k)
 		}
 	}
 	return nil
