@@ -2,7 +2,7 @@
 -- KEYS[1]: rate limit key (e.g., "rate_limit:192.168.1.1")
 -- ARGV[1]: capacity (max tokens)
 -- ARGV[2]: refill rate (tokens per second)
--- ARGV[3]: current timestamp (Unix seconds)
+-- ARGV[3]: current time as Unix seconds (float, same scale as Go UnixMicro/1e6)
 -- ARGV[4]: tokens to consume (default 1)
 -- ARGV[5]: key TTL in seconds
 
