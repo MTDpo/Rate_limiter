@@ -9,12 +9,12 @@ import (
 	"syscall"
 	"time"
 
-	"rate_limiter/internal/config"
-	"rate_limiter/internal/health"
-	"rate_limiter/internal/limiter"
-	"rate_limiter/internal/logger"
-	"rate_limiter/internal/metrics"
-	"rate_limiter/internal/middleware"
+	"github.com/MTDpo/Rate_limiter/internal/config"
+	"github.com/MTDpo/Rate_limiter/internal/health"
+	"github.com/MTDpo/Rate_limiter/internal/limiter"
+	"github.com/MTDpo/Rate_limiter/internal/logger"
+	"github.com/MTDpo/Rate_limiter/internal/metrics"
+	"github.com/MTDpo/Rate_limiter/internal/middleware"
 
 	"github.com/redis/go-redis/v9"
 )

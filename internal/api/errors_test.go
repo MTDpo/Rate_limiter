@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"rate_limiter/internal/api"
+	"github.com/MTDpo/Rate_limiter/internal/api"
 )
 
 func TestWriteJSONError(t *testing.T) {

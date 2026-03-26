@@ -1,4 +1,4 @@
-module rate_limiter
+module github.com/MTDpo/Rate_limiter
 
 go 1.25.5
 

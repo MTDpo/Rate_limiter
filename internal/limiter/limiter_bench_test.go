@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"rate_limiter/internal/limiter"
+	"github.com/MTDpo/Rate_limiter/internal/limiter"
 
 	"github.com/redis/go-redis/v9"
 )

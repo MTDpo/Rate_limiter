@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strings"
 
-	"rate_limiter/internal/api"
-	"rate_limiter/internal/limiter"
-	"rate_limiter/internal/metrics"
+	"github.com/MTDpo/Rate_limiter/internal/api"
+	"github.com/MTDpo/Rate_limiter/internal/limiter"
+	"github.com/MTDpo/Rate_limiter/internal/metrics"
 )
 
 var SkippedPaths = map[string]bool{

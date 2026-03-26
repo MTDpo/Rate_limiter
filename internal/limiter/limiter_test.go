@@ -7,7 +7,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"rate_limiter/internal/limiter"
+	"github.com/MTDpo/Rate_limiter/internal/limiter"
 )
 
 func setupRedis(t *testing.T) *redis.Client {

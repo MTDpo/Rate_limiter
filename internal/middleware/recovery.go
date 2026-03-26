@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"runtime/debug"
 
-	"rate_limiter/internal/api"
-	"rate_limiter/internal/metrics"
+	"github.com/MTDpo/Rate_limiter/internal/api"
+	"github.com/MTDpo/Rate_limiter/internal/metrics"
 )
 
 func Recovery(log *slog.Logger, next http.Handler) http.Handler {

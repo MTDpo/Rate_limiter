@@ -9,8 +9,8 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"rate_limiter/internal/limiter"
-	"rate_limiter/internal/middleware"
+	"github.com/MTDpo/Rate_limiter/internal/limiter"
+	"github.com/MTDpo/Rate_limiter/internal/middleware"
 )
 
 func initRedisForBench() *redis.Client {

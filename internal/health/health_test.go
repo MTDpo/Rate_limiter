@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"rate_limiter/internal/health"
+	"github.com/MTDpo/Rate_limiter/internal/health"
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"

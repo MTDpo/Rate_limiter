@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"rate_limiter/internal/middleware"
+	"github.com/MTDpo/Rate_limiter/internal/middleware"
 )
 
 type mockLimiter struct {
