@@ -69,3 +69,10 @@ func (rw *responseWriter) WriteHeader(code int) {
 		rw.ResponseWriter.WriteHeader(code)
 	}
 }
+
+func (rw *responseWriter) Write(b []byte) (int, error) {
+	if !rw.written {
+		rw.WriteHeader(http.StatusOK)
+	}
+	return rw.ResponseWriter.Write(b)
+}
