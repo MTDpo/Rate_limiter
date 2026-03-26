@@ -44,7 +44,7 @@ func TestRateLimit_Allowed(t *testing.T) {
 	calls := 0
 	m := &mockLimiter{allowFn: func(ctx context.Context, key string) (bool, error) {
 		calls++
-		if key != "192.168.1.1" {
+		if key != "ip:192.168.1.1" {
 			t.Errorf("key = %q", key)
 		}
 		return true, nil
@@ -59,6 +59,32 @@ func TestRateLimit_Allowed(t *testing.T) {
 	h.ServeHTTP(rr, req)
 	if rr.Code != http.StatusOK || calls != 1 {
 		t.Fatalf("code = %d, calls = %d", rr.Code, calls)
+	}
+}
+
+func TestRateLimit_TwoKeyDimensions(t *testing.T) {
+	var seen []string
+	m := &mockLimiter{allowFn: func(ctx context.Context, key string) (bool, error) {
+		seen = append(seen, key)
+		return true, nil
+	}}
+	exs, err := middleware.KeyExtractorsForModes([]string{"ip", "user_id"}, "X-User-ID", "X-API-Key")
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := middleware.RateLimit(m, &middleware.RateLimitOpts{KeyExtractors: exs})(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.RemoteAddr = "10.0.0.5:1"
+	req.Header.Set("X-User-ID", "alice")
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("code %d", rr.Code)
+	}
+	if len(seen) != 2 || seen[0] != "ip:10.0.0.5" || seen[1] != "user:alice" {
+		t.Fatalf("keys = %v", seen)
 	}
 }
 
