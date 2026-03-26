@@ -5,8 +5,9 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"rate_limiter/internal/middleware"
 	"testing"
+
+	"rate_limiter/internal/middleware"
 )
 
 type mockLimiter struct {

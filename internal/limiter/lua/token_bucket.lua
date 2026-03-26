@@ -30,7 +30,7 @@ tokens = math.min(capacity, tokens + refill)
 if tokens >= requested then
     tokens = tokens - requested
     redis.call('HMSET', key, 'tokens', tokens, 'last_update', now)
-    resid.call('EXPIRE', key, ttl)
+    redis.call('EXPIRE', key, ttl)
     return 1 -- allowed
 else
     return 0 -- denied

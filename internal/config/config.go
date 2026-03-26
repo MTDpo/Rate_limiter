@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -22,40 +23,62 @@ type Config struct {
 	RedisMaxBackoff time.Duration
 
 	// Rate Limiter
-	RateLimitCapacity int
-	RateLimitRefill   float64
-	RateLimitKeyTTL   int
-	FailOpen          bool // allow traffic when Redis is down
+	RateLimitAlgorithm string // token_bucket | sliding_window | leaky_bucket
+	RateLimitCapacity  int
+	RateLimitRefill    float64
+	RateLimitWindow    time.Duration // sliding_window only
+	RateLimitKeyTTL    int
+	FailOpen           bool // allow traffic when Redis is down
 }
 
 // Load reads config from environment and validates it.
 func Load() (*Config, error) {
 	cfg := &Config{
-		HTTPAddr:          getEnv("HTTP_ADDR", ":8080"),
-		MetricsAddr:       getEnv("METRICS_ADDR", ":9090"),
-		ShutdownTimeout:   getEnvDuration("SHUTDOWN_TIMEOUT", 15*time.Second),
-		RedisAddr:         getEnv("REDIS_ADDR", "localhost:6379"),
-		RedisTimeout:      getEnvDuration("REDIS_TIMEOUT", 3*time.Second),
-		RedisRetries:      getEnvInt("REDIS_RETRIES", 3),
-		RedisMinBackoff:   getEnvDuration("REDIS_MIN_BACKOFF", 100*time.Millisecond),
-		RedisMaxBackoff:   getEnvDuration("REDIS_MAX_BACKOFF", 2*time.Second),
-		RateLimitCapacity: getEnvInt("RATE_LIMIT_CAPACITY", 100),
-		RateLimitRefill:   getEnvFloat("RATE_LIMIT_REFILL", 100.0/60.0),
-		RateLimitKeyTTL:   getEnvInt("RATE_LIMIT_KEY_TTL", 120),
-		FailOpen:          getEnvBool("RATE_LIMIT_FAIL_OPEN", true),
+		HTTPAddr:           getEnv("HTTP_ADDR", ":8080"),
+		MetricsAddr:        getEnv("METRICS_ADDR", ":9090"),
+		ShutdownTimeout:    getEnvDuration("SHUTDOWN_TIMEOUT", 15*time.Second),
+		RedisAddr:          getEnv("REDIS_ADDR", "localhost:6379"),
+		RedisTimeout:       getEnvDuration("REDIS_TIMEOUT", 3*time.Second),
+		RedisRetries:       getEnvInt("REDIS_RETRIES", 3),
+		RedisMinBackoff:    getEnvDuration("REDIS_MIN_BACKOFF", 100*time.Millisecond),
+		RedisMaxBackoff:    getEnvDuration("REDIS_MAX_BACKOFF", 2*time.Second),
+		RateLimitAlgorithm: strings.ToLower(strings.TrimSpace(getEnv("RATE_LIMIT_ALGORITHM", "token_bucket"))),
+		RateLimitCapacity:  getEnvInt("RATE_LIMIT_CAPACITY", 100),
+		RateLimitRefill:    getEnvFloat("RATE_LIMIT_REFILL", 100.0/60.0),
+		RateLimitWindow:    getEnvDuration("RATE_LIMIT_WINDOW", time.Minute),
+		RateLimitKeyTTL:    getEnvInt("RATE_LIMIT_KEY_TTL", 120),
+		FailOpen:           getEnvBool("RATE_LIMIT_FAIL_OPEN", true),
 	}
 	return cfg, cfg.Validate()
 }
 
 func (c *Config) Validate() error {
+	switch c.RateLimitAlgorithm {
+	case "", "token_bucket", "sliding_window", "leaky_bucket":
+	default:
+		return fmt.Errorf("unknown RATE_LIMIT_ALGORITHM %q (use token_bucket, sliding_window, leaky_bucket)", c.RateLimitAlgorithm)
+	}
 	if c.RateLimitCapacity <= 0 {
 		return fmt.Errorf("RATE_LIMIT_CAPACITY must be positive, got %d", c.RateLimitCapacity)
 	}
-	if c.RateLimitRefill <= 0 {
-		return fmt.Errorf("RATE_LIMIT_REFILL must be positive, got %f", c.RateLimitRefill)
+	algo := c.RateLimitAlgorithm
+	if algo == "" {
+		algo = "token_bucket"
+	}
+	if algo != "sliding_window" && c.RateLimitRefill <= 0 {
+		return fmt.Errorf("RATE_LIMIT_REFILL must be positive for token_bucket/leaky_bucket, got %f", c.RateLimitRefill)
 	}
 	if c.ShutdownTimeout < time.Second {
 		return fmt.Errorf("SHUTDOWN_TIMEOUT must be >= 1s, got %v", c.ShutdownTimeout)
+	}
+	if algo == "sliding_window" {
+		if c.RateLimitWindow < time.Second {
+			return fmt.Errorf("RATE_LIMIT_WINDOW must be >= 1s for sliding_window, got %v", c.RateLimitWindow)
+		}
+		minTTL := int(c.RateLimitWindow/time.Second) + 1
+		if c.RateLimitKeyTTL < minTTL {
+			return fmt.Errorf("RATE_LIMIT_KEY_TTL must be >= window+1s (%ds) for sliding_window, got %d", minTTL, c.RateLimitKeyTTL)
+		}
 	}
 	return nil
 }

@@ -17,7 +17,7 @@ linters-settings:
   gofmt:
     simplify: true
   goimports:
-    local-prefixes: rate-limiter
+    local-prefixes: rate_limiter
 
 issues:
   exclude-rules:

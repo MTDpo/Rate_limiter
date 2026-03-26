@@ -3,6 +3,7 @@ package limiter_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/redis/go-redis/v9"
 
@@ -56,6 +57,98 @@ func TestTokenBucket_RejectWhenExceeded(t *testing.T) {
 		}
 	}
 	allowed, err := tb.Allow(ctx, key)
+	if err != nil {
+		t.Fatalf("Allow: %v", err)
+	}
+	if allowed {
+		t.Error("expected 6th request to be rejected")
+	}
+}
+
+func TestSlidingWindow_AllowWithinLimit(t *testing.T) {
+	rdb := setupRedis(t)
+	sw := limiter.NewSlidingWindow(rdb, limiter.SlidingWindowConfig{
+		MaxPerWindow: 10,
+		Window:       time.Minute,
+		KeyTTL:       120,
+	})
+	ctx := context.Background()
+	key := "test_sw_1"
+
+	for i := 0; i < 10; i++ {
+		allowed, err := sw.Allow(ctx, key)
+		if err != nil {
+			t.Fatalf("Allow: %v", err)
+		}
+		if !allowed {
+			t.Errorf("request %d: expected allowed", i+1)
+		}
+	}
+}
+
+func TestSlidingWindow_RejectWhenExceeded(t *testing.T) {
+	rdb := setupRedis(t)
+	sw := limiter.NewSlidingWindow(rdb, limiter.SlidingWindowConfig{
+		MaxPerWindow: 5,
+		Window:       time.Minute,
+		KeyTTL:       120,
+	})
+	ctx := context.Background()
+	key := "test_sw_exceed"
+
+	for i := 0; i < 5; i++ {
+		allowed, _ := sw.Allow(ctx, key)
+		if !allowed {
+			t.Errorf("request %d: expected allowed", i+1)
+		}
+	}
+	allowed, err := sw.Allow(ctx, key)
+	if err != nil {
+		t.Fatalf("Allow: %v", err)
+	}
+	if allowed {
+		t.Error("expected 6th request to be rejected")
+	}
+}
+
+func TestLeakyBucket_AllowWithinLimit(t *testing.T) {
+	rdb := setupRedis(t)
+	lb := limiter.NewLeakyBucket(rdb, limiter.LeakyBucketConfig{
+		Capacity: 10,
+		LeakRate: 1,
+		KeyTTL:   60,
+	})
+	ctx := context.Background()
+	key := "test_lb_1"
+
+	for i := 0; i < 10; i++ {
+		allowed, err := lb.Allow(ctx, key)
+		if err != nil {
+			t.Fatalf("Allow: %v", err)
+		}
+		if !allowed {
+			t.Errorf("request %d: expected allowed", i+1)
+		}
+	}
+}
+
+func TestLeakyBucket_RejectWhenExceeded(t *testing.T) {
+	rdb := setupRedis(t)
+	lb := limiter.NewLeakyBucket(rdb, limiter.LeakyBucketConfig{
+		Capacity: 5,
+		LeakRate: 0.01,
+		KeyTTL:   60,
+	})
+	ctx := context.Background()
+	key := "test_lb_exceed"
+
+	for i := 0; i < 5; i++ {
+		allowed, _ := lb.Allow(ctx, key)
+		if !allowed {
+			t.Errorf("request %d: expected allowed", i+1)
+		}
+	}
+	allowed, err := lb.Allow(ctx, key)
 	if err != nil {
 		t.Fatalf("Allow: %v", err)
 	}

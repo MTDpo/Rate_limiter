@@ -36,8 +36,11 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Go version
+        run: go version
+
       - name: Go test (race)
-        run: go test -race ./...
+        run: go test -race -count=1 -timeout=3m ./...
 
   lint:
     name: Lint
@@ -50,7 +53,9 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      # Pin v1.x: "latest" may resolve to golangci-lint v2 with a different config schema.
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
-          version: latest
+          version: v1.64.8
+          args: --timeout=5m

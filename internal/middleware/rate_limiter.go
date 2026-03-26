@@ -3,10 +3,11 @@ package middleware
 import (
 	"net"
 	"net/http"
+	"strings"
+
 	"rate_limiter/internal/api"
 	"rate_limiter/internal/limiter"
 	"rate_limiter/internal/metrics"
-	"strings"
 )
 
 var SkippedPaths = map[string]bool{

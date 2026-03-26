@@ -3,8 +3,9 @@ package limiter_test
 import (
 	"context"
 	"fmt"
-	"rate_limiter/internal/limiter"
 	"testing"
+
+	"rate_limiter/internal/limiter"
 
 	"github.com/redis/go-redis/v9"
 )

@@ -4,8 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"rate_limiter/internal/api"
 	"testing"
+
+	"rate_limiter/internal/api"
 )
 
 func TestWriteJSONError(t *testing.T) {

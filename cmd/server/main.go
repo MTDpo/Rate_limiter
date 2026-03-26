@@ -6,14 +6,15 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"syscall"
+	"time"
+
 	"rate_limiter/internal/config"
 	"rate_limiter/internal/health"
 	"rate_limiter/internal/limiter"
 	"rate_limiter/internal/logger"
 	"rate_limiter/internal/metrics"
 	"rate_limiter/internal/middleware"
-	"syscall"
-	"time"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -42,7 +43,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	if err := rdb.Ping(ctx).Err(); err != nil {
 		cancel()
-		log.Error("redis connectiion failed", "addr", cfg.RedisAddr, "error", err)
+		log.Error("redis connection failed", "addr", cfg.RedisAddr, "error", err)
 		os.Exit(1)
 	}
 	cancel()
@@ -50,25 +51,44 @@ func main() {
 	hc := health.NewChecker(rdb)
 	hc.SetReady(true, "")
 
-	tbCfg := limiter.TokenBucketConfig{
-		Capacity:   cfg.RateLimitCapacity,
-		RefillRate: cfg.RateLimitRefill,
-		KeyTTL:     cfg.RateLimitKeyTTL,
+	algo := cfg.RateLimitAlgorithm
+	if algo == "" {
+		algo = "token_bucket"
 	}
-	tb := limiter.NewTokenBucket(rdb, tbCfg)
+	var lim limiter.Limiter
+	switch algo {
+	case "sliding_window":
+		lim = limiter.NewSlidingWindow(rdb, limiter.SlidingWindowConfig{
+			MaxPerWindow: cfg.RateLimitCapacity,
+			Window:       cfg.RateLimitWindow,
+			KeyTTL:       cfg.RateLimitKeyTTL,
+		})
+	case "leaky_bucket":
+		lim = limiter.NewLeakyBucket(rdb, limiter.LeakyBucketConfig{
+			Capacity: cfg.RateLimitCapacity,
+			LeakRate: cfg.RateLimitRefill,
+			KeyTTL:   cfg.RateLimitKeyTTL,
+		})
+	default:
+		lim = limiter.NewTokenBucket(rdb, limiter.TokenBucketConfig{
+			Capacity:   cfg.RateLimitCapacity,
+			RefillRate: cfg.RateLimitRefill,
+			KeyTTL:     cfg.RateLimitKeyTTL,
+		})
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ok"}`))
+		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	})
 	mux.HandleFunc("/live", hc.LivenessHandler())
 	mux.HandleFunc("/ready", hc.ReadinessHandler())
 	mux.HandleFunc("/health", hc.ReadinessHandler())
 
 	rateLimitOpts := &middleware.RateLimitOpts{FailOpen: cfg.FailOpen}
-	handler := middleware.RateLimit(tb, rateLimitOpts)(mux)
+	handler := middleware.RateLimit(lim, rateLimitOpts)(mux)
 	handler = metrics.Handler(handler)
 	handler = middleware.Recovery(log, handler)
 	handler = middleware.RequestID(handler) // outermost: adds ID for all downstream
@@ -94,7 +114,7 @@ func main() {
 	}()
 
 	go func() {
-		log.Info("http server listening", "addr", cfg.HTTPAddr, "limit_per_min", cfg.RateLimitCapacity)
+		log.Info("http server listening", "addr", cfg.HTTPAddr, "algorithm", algo, "capacity", cfg.RateLimitCapacity)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Error("http server failed", "error", err)
 			os.Exit(1)

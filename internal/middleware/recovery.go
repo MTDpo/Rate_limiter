@@ -3,9 +3,10 @@ package middleware
 import (
 	"log/slog"
 	"net/http"
+	"runtime/debug"
+
 	"rate_limiter/internal/api"
 	"rate_limiter/internal/metrics"
-	"runtime/debug"
 )
 
 func Recovery(log *slog.Logger, next http.Handler) http.Handler {

@@ -3,8 +3,9 @@ package health_test
 import (
 	"net/http"
 	"net/http/httptest"
-	"rate_limiter/internal/health"
 	"testing"
+
+	"rate_limiter/internal/health"
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
